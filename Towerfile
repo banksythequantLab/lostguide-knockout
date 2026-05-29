@@ -1,0 +1,28 @@
+[app]
+name = "lostguide-knockout"
+script = "./pipeline.py"
+source = [
+  "./pipeline.py",
+  "./nimble_knockout.py",
+  "./requirements.txt",
+]
+
+[[parameters]]
+name = "mark"
+description = "Trademark text to clear, e.g. 'BANKSY AI'"
+default = "BANKSY AI"
+
+[[parameters]]
+name = "classes"
+description = "Comma-separated Nice classification numbers, e.g. 9,42,41"
+default = "9,42,41"
+
+[[parameters]]
+name = "niche"
+description = "Niche tuning: mobile-app | amazon-fba | podcast | cannabis-ny | generic"
+default = "mobile-app"
+
+[[parameters]]
+name = "namespace"
+description = "Iceberg namespace for the lakehouse tables"
+default = "lostguide"
