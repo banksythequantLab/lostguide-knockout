@@ -23,9 +23,16 @@ Proven by:
 - `tower run` has **no `--runner` flag**, and the web console has **no Runners tab**, so run→runner
   routing cannot be set from the CLI by us.
 
-Conclusion: the account (`banksi-ai`, personal team) either has **no working cloud compute
-entitlement** and/or **is not configured to route runs to the self-hosted runner**. This is an
-account/platform setting only **Tower** can change — see `TOWER_SUPPORT_EMAIL.md`.
+**Credits/quota ruled out (checked via `GET /v1/plan`):** the account is on a `beta` plan with
+**1000 compute minutes**, 20 app slots, 20 schedules, 5 members, and 1 self-hosted-runner
+entitlement (i.e. Team-tier, granted free). Runs die in ~1s, so consumed minutes are negligible —
+**this is NOT a billing/credits problem, and cloud compute IS entitled.** (`GET /v1/usage` is 403
+for this token's scope, so the exact consumed counter isn't readable, but exhaustion is
+implausible at ~1s/run against 1000 min.) execution_region = `eu-central-1`.
+
+Conclusion: cloud pods **fail to spawn** (~1s, `exit_code: null`) despite available quota and a
+healthy self-hosted runner that never receives work. This is a **Tower platform/runtime issue**
+(pod spin-up), only Tower can resolve — see `TOWER_SUPPORT_EMAIL.md`.
 
 ## To get a green run later (any one of these)
 1. Tower enables cloud compute on the account, OR binds the `default`/`production` environment to

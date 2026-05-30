@@ -14,7 +14,10 @@ before my code executes, and I've ruled out my app as the cause. I'd appreciate 
 run to actually execute.
 
 **Account / app**
-- Org/team: `banksi-ai` (personal)
+- Org/team: `banksi-ai` (personal), execution_region: `eu-central-1`
+- Plan (`GET /v1/plan`): `beta` — 1000 compute minutes, 20 app slots, 20 schedules,
+  5 members, 1 self-hosted-runner entitlement. **So this is NOT a quota/credit problem:**
+  I have 1000 compute minutes and have consumed only seconds (every run dies in ~1s).
 - App: `lostguide-knockout` (currently v5), environments tried: `default` and `production`
 
 **Symptom**
@@ -43,8 +46,10 @@ run to actually execute.
 - Every run instead dispatches to a cloud-pool runner (`019e6540-…`), which is what errors.
 
 **My questions**
-1. Does my account have cloud compute enabled for `tower run`? If not, is that the reason the
-   cloud-pool pods die immediately?
+1. My `beta` plan shows 1000 compute minutes available (I've used only seconds), so this isn't a
+   quota issue — yet every cloud pod dies in ~1s at spin-up with `exit_code: null`. Is there a
+   platform problem starting pods for my account in region `eu-central-1`? What's the actual
+   pod-spawn error on your side?
 2. How do I route runs to my **self-hosted** runner (`019e7a01-…`)? I don't see a `--runner`
    flag on `tower run` or a Runners tab in the console — is there an environment→runner binding
    I need to set?
