@@ -13,7 +13,7 @@ Built for the DeveloperWeek New York 2026 **"Pipeline Challenge: Data-to-AI."**
   Parquet if no Tower catalog/session is available, so it runs locally without an account.
 - `nimble_knockout.py` — the live-web knockout agent (reused, not forked).
 - `Towerfile` — app + parameter definitions.
-- `requirements.txt` — `nimble-python`, `pyarrow`, `tower[iceberg]`.
+- `requirements.txt` — `nimble-python`, `pyarrow` (the Tower runner provides `tower` and its Iceberg deps, so do **not** list `tower` in requirements.txt — that breaks the runner build).
 
 ## Deploy (needs a tower.dev account)
 ```bash
