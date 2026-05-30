@@ -1,34 +1,43 @@
-# Tower deployment status — honest record (updated 2026-05-30, GREEN)
+# Tower deployment status — honest record (2026-05-30)
 
 ## TL;DR
 - **Local pipeline: WORKS** — `python pipeline.py` runs live (6 Nimble calls, ~27–29 conflicts,
-  HIGH → DO_NOT_PROCEED).
+  HIGH → DO_NOT_PROCEED) and writes `knockout_runs` + `knockout_conflicts` (Parquet locally).
 - **Tower deploy: WORKS** — app `lostguide-knockout` healthy/active (v5).
-- **Tower cloud run: WORKS (GREEN)** — Run #7 `exited` cleanly (`tower apps show` → `exited 1`):
-  `stub:false, nimble_calls:6, n_conflicts:27, risk:HIGH, DO_NOT_PROCEED, sink:local-parquet`.
+- **Tower cloud run: FAILS** — all 7 runs `errored` 1–3s after "spinning up pod," before any
+  code runs (`tower apps show` → `exited 0, errored 7`). **No successful hosted run exists.**
 
-## What was actually wrong (and the fix)
-Runs #1–#6 all **errored in 1–3s right after "spinning up pod,"** before any code ran.
-A no-dependency `print("hello")` control app failed identically — proving it was **not** our
-code, requirements.txt, or Towerfile. Root cause: the `banksi-ai` account had **no compute
-runner** to execute pods.
+## Why it fails
+A no-dependency `print("hello")` control app fails identically, so it is **not** our code,
+requirements.txt, or Towerfile. The `banksi-ai` account has **no compute runner** attached to
+execute pods, so every pod dies at startup.
 
-**Fix:** attach a self-hosted Tower runner via Docker on the project machine:
-```powershell
-docker pull towerhq/tower-runner:latest
-docker run -d --name tower-runner --restart unless-stopped -e TOWER_API_KEY=<sk-...> towerhq/tower-runner:latest
-```
-Runner registered with the Tower control plane ("runner online, waiting for work"); the very
-next `tower run` went green (Run #7, `exited`).
+## Attempt to fix (did NOT succeed in this environment)
+Tried to attach a self-hosted runner two ways on the project machine (Vesper):
+1. **Docker** (`docker run … towerhq/tower-runner`): **Docker Desktop would not start** — the
+   `docker-desktop` WSL distro stayed `Stopped` and the daemon pipe never came up, so every
+   docker command failed. Runner never launched.
+2. **Native Windows binary** (`tower-runner.exe` 0.8.17): it is a **Windows Service** and must be
+   registered via `install-service.ps1` **as Administrator** (then `Start-Service TowerRunner`).
+   Running the exe directly fails with `Service dispatcher failed (code 1063)`. Not installed
+   here because it needs elevation + persistent service install (owner approval required).
 
-## Operating notes
-- The runner must be **running** (the container, or Docker Desktop on Windows) for cloud runs
-  to execute. `docker ps` should show `tower-runner` Up; `docker logs tower-runner` shows activity.
-- `sink: local-parquet` means no Iceberg catalog is configured. Enable Tower's managed Iceberg
-  Catalog in the web console (slug `default`) to persist `knockout_runs` / `knockout_conflicts`;
-  no code or redeploy needed.
-- **Security:** the `TOWER_API_KEY` used here was shared in a chat session — rotate it in the
-  Tower console (Settings → API keys → regenerate) and update the runner's env.
+## What will actually make it green (one of these)
+- **Start Docker Desktop**, then:
+  `docker run -d --name tower-runner --restart unless-stopped -e TOWER_API_KEY=<sk-...> towerhq/tower-runner:latest`
+  then `tower run` → should `exited` clean. Verify: `docker logs tower-runner` shows "online".
+- **OR install the native service (Admin):** from `B:\tower-runner`, `./install-service.ps1`,
+  set the key in `%ProgramData%\tower-runner\tower-runner.env`, `Start-Service TowerRunner`.
+- Then enable an Iceberg catalog in the Tower console if you want `sink: tower-iceberg`
+  instead of `local-parquet`.
+
+## For the hackathon submission
+Claim the **local verification** only (real + reproducible). Do **NOT** claim a hosted Tower
+run — `tower apps show lostguide-knockout` must read `exited >= 1` before that's true.
+
+## Security
+The `TOWER_API_KEY` was shared in a chat session — **rotate it** (Tower console → API keys →
+regenerate) and update wherever the runner reads it.
 
 ## Run history (tower apps show, 2026-05-30)
-`run_results: exited 1, errored 6` — runs #1–#6 errored (no runner); **#7 exited (runner attached).**
+`run_results: exited 0, errored 7` — runs #1–#7 all `errored` (no runner attached).
