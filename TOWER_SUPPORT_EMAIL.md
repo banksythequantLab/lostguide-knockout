@@ -24,7 +24,11 @@ run to actually execute.
 - `tower apps show lostguide-knockout` → `run_results: exited 0, errored 11`.
 
 **What I've already verified (so it's not my code)**
-- A throwaway zero-dependency app (`print("hello")`, no requirements) fails identically.
+- **Minimal repro on my account:** app `hello-tower` — entire code is one line,
+  `print("hello from tower - contact confirmed")`, no dependencies. Deployed clean (v1), but
+  Run #1 ERRORED. Run log shows only `[setup] dispatched to runner 019e6540-d5d9-7c6e-…,
+  spinning up pod`, then it errors (`run_results: exited 0, errored 1`). The code never runs.
+  This app is still on my account if you want to inspect it.
 - Same failure on both `--environment=default` and `--environment=production`.
 - `requirements.txt` and `Towerfile` are minimal and valid; local `tower run --local` / direct
   `python` execution works fine and produces correct output.
