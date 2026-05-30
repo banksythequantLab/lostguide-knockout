@@ -1,23 +1,17 @@
 # Tower deployment status — honest record (2026-05-30, final for this session)
 
-## TL;DR (updated 2026-05-30 — Tower LOCAL execution now verified green)
-- **Tower LOCAL run: WORKS ✅** — `tower run --local` (driven via the Tower MCP `tower_run_local`
-  tool, and via CLI) executes the real pipeline through Tower's runtime: Tower installs deps
-  (pyarrow, nimble-python), runs LIVE (stub=false, 6 Nimble calls, 28 conflicts,
-  HIGH → DO_NOT_PROCEED), and exits cleanly. **Must run from a LOCAL drive (E:), not the B:\ UNC
-  share** — see root cause below.
-- **Plain `python pipeline.py`: WORKS** — same live result.
-- **Tower deploy: WORKS** — app healthy/active (now v6).
-- **Tower CLOUD run: STILL FAILS** — runs error at pod spin-up (`exit_code: null`, ~1s);
-  `exited 0, errored 12`. Deploying from a local drive (E:) did NOT fix it → confirmed server-side.
-
-## Root causes (both isolated 2026-05-30)
-1. **Local "SpawnFailed" was the B:\ UNC drive.** `USERPROFILE=B:\` (\\Johnson\b network share);
-   Tower's local runtime stages/spawns from the profile, which fails over UNC. Running the app
-   from a **local drive (E:\lostguide-knockout)** via the MCP → local run succeeds cleanly.
-2. **Cloud pod-spawn failure is separate and server-side.** Reproduced from both B: and E: drives,
-   and with a zero-dependency `print()` app — pods die in ~1s before code runs. Not quota
-   (beta plan = 1000 compute min, used seconds), not entitlement, not our code. Only Tower can fix.
+## TL;DR
+- **Local pipeline: WORKS** — `python pipeline.py` runs live (6 Nimble calls, ~27 conflicts,
+  HIGH → DO_NOT_PROCEED).
+- **Tower deploy: WORKS** — app `lostguide-knockout` healthy/active (v5).
+- **Tower CLOUD run: FAILS** — all runs error at pod spin-up (`exit_code: null`, ~1s);
+  `exited 0, errored 11`.
+- **Tower `--local` run: NOT yet confirmed working** — earlier attempt hit `SpawnFailed`; a retry
+  from a local drive could not be completed because drive `E:` does not exist on this machine
+  (only C: and D: and the B:\ UNC share). Untested from D:. NOT claiming it works.
+- **Tower MCP `tower_run_local`/`tower_file_*` via stdio:** returned no response in scripted
+  probes (likely needs a longer-lived server handshake than a one-shot pipe). The MCP exposes the
+  same 28 ops as the CLI; no runner-selection tool exists.
 - **Self-hosted runner: REGISTERED & HEALTHY** — Tower's own API confirms it
   (`GET /v1/runners` → `status: healthy`, recent `last_health_check_at`, `max_concurrent_apps: 1`).
 - **Tower cloud run: STILL FAILS** — 11/11 runs `errored` (`tower apps show` → `exited 0, errored 11`).
