@@ -1,3 +1,2 @@
 nimble-python>=0.18
 pyarrow>=15
-tower[iceberg]
