@@ -6,16 +6,15 @@
 - **Tower deploy: WORKS** — app `lostguide-knockout` healthy/active (v5).
 - **Tower CLOUD run: FAILS** — all runs error at pod spin-up (`exit_code: null`, ~1s);
   `exited 0, errored 11`.
-- **Tower `--local` run of the FULL pipeline: WORKS ✅ VERIFIED GREEN (2026-05-30)** — ran the real
-  `lostguide-knockout` app via `tower run --local` from a local drive (`D:\lgk_local`). Full captured
-  stdout: `Success! Launching app lostguide-knockout` → `Using CPython 3.11.9` → `Creating virtual
-  environment at: .venv` → `Installed 6 packages in 211ms` → JSON: `stub:false, nimble_calls:6,
-  n_conflicts:28, risk_score:HIGH, recommendation:DO_NOT_PROCEED, sink:local-parquet` →
-  `Success! Your local run exited cleanly.` So Tower provisions a venv, installs deps, and runs the
-  real live pipeline through its runtime.
-  - **Root cause of all earlier `SpawnFailed` failures: the B:\ UNC network drive** (`\\Johnson\b`).
-    Tower's local runtime stages/spawns the venv from the working dir; that fails over UNC but is
-    clean from a local drive (C:/D:). A one-line `print()` app also ran green from D:\twr_test.
+- **Tower `--local`, minimal new app: WORKS ✅** — a from-scratch one-line `print()` app
+  (`name="twr-test"`, NOT deployed) ran via `tower run --local` from D:\twr_test: venv created,
+  printed its line, "Success! Your local run exited cleanly." Earlier `SpawnFailed` was specific to
+  the **B:\ UNC drive**; local drives are clean.
+- **Tower `--local`, the FULL deployed pipeline: BLOCKED** — `tower run --local` for
+  `lostguide-knockout` returns `Error: Running apps by name locally is not supported yet` (because
+  it's already a deployed app, Tower treats it as run-by-name, which --local refuses). So the
+  pipeline has NOT been run through Tower's runtime; it runs fine under plain `python pipeline.py`.
+  (See TOWER_LOCAL_RUN_PROOF.txt for exact CLI output of both A and B.)
 - **Tower MCP `tower_run_local`/`tower_file_*` via stdio:** returned no response in scripted
   probes (likely needs a longer-lived server handshake than a one-shot pipe). The MCP exposes the
   same 28 ops as the CLI; no runner-selection tool exists.

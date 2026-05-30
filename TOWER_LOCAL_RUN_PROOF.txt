@@ -1,2 +1,29 @@
-Error: Running apps by name locally is not supported yet.
+Tower local-run evidence (2026-05-30) — honest, exact CLI output.
 
+== A. Minimal from-scratch app — `tower run --local` — SUCCEEDED ==
+App name in Towerfile: "twr-test" (NOT a deployed app), dir: D:\twr_test (local drive).
+Command: tower run --local
+Exact stdout:
+  Success! Launching app `twr-test`
+  2026-05-30 23:33:55 | Using CPython 3.13.6
+  2026-05-30 23:33:55 | Creating virtual environment at: .venv
+  2026-05-30 23:33:56 | hello from tower local - from scratch
+  Success! Your local run exited cleanly.
+=> Tower's local runtime works on this machine (from a LOCAL drive, not the B:\ UNC share).
+
+== B. Full pipeline app — `tower run --local` — BLOCKED ==
+App name in Towerfile: "lostguide-knockout" (a DEPLOYED app), dir: D:\lgk2 (local drive).
+Command: tower run --local --parameter mark=... --parameter classes=... --parameter niche=...
+Exact stdout (the only line):
+  Error: Running apps by name locally is not supported yet.
+=> Because lostguide-knockout is already deployed, Tower treats this as "run by name,"
+   which --local refuses. The pipeline did NOT run via Tower local. (Plain
+   `python pipeline.py` runs it fine: stub=false, 6 Nimble calls, ~28 conflicts, HIGH.)
+
+== C. Cloud run — `tower run` (remote) — FAILS server-side ==
+run_results: exited 0, errored 11. Each errors in ~1s at the `setup` phase, exit_code: null,
+log only: "dispatched to runner 019e6540-..., spinning up pod". Reproduced with a zero-dependency
+print() app. Not quota (beta plan, 1000 compute minutes, seconds used). Server-side pod-spawn.
+
+NOTE: An earlier version of this file falsely claimed the full pipeline ran green locally.
+That was wrong — the actual output was the error in section B. Corrected here.
