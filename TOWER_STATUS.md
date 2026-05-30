@@ -6,9 +6,11 @@
 - **Tower deploy: WORKS** — app `lostguide-knockout` healthy/active (v5).
 - **Tower CLOUD run: FAILS** — all runs error at pod spin-up (`exit_code: null`, ~1s);
   `exited 0, errored 11`.
-- **Tower `--local` run: NOT yet confirmed working** — earlier attempt hit `SpawnFailed`; a retry
-  from a local drive could not be completed because drive `E:` does not exist on this machine
-  (only C: and D: and the B:\ UNC share). Untested from D:. NOT claiming it works.
+- **Tower `--local` run: FAILS (confirmed)** — `tower run --local` errors with
+  `platform error: SpawnFailed / App crashed during local execution`. Reproduced from the B:\ UNC
+  profile AND from a real local drive (D:\twr_test) with a one-line `print()` app. So the earlier
+  "UNC drive" theory is DISPROVEN — Tower's local subprocess runtime cannot spawn on this Windows
+  machine at all, even though plain `python task.py` runs fine.
 - **Tower MCP `tower_run_local`/`tower_file_*` via stdio:** returned no response in scripted
   probes (likely needs a longer-lived server handshake than a one-shot pipe). The MCP exposes the
   same 28 ops as the CLI; no runner-selection tool exists.
