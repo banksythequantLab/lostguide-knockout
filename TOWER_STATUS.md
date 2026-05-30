@@ -1,34 +1,49 @@
-# Tower deployment status — honest record (2026-05-30)
+# Tower deployment status — honest record (2026-05-30, final for this session)
 
 ## TL;DR
 - **Local pipeline: WORKS** — `python pipeline.py` runs live (6 Nimble calls, ~27 conflicts,
   HIGH → DO_NOT_PROCEED).
 - **Tower deploy: WORKS** — app `lostguide-knockout` healthy/active (v5).
-- **Self-hosted runner: registered** — Docker container `tower-runner` is Up and registered with
-  the Tower control plane (runner_id `019e7a01-…`, "Using local subprocess backend").
-- **Tower cloud run: STILL FAILING** — all 8 runs `errored` (`tower apps show` → `exited 0, errored 8`).
+- **Self-hosted runner: REGISTERED & HEALTHY** — Tower's own API confirms it
+  (`GET /v1/runners` → `status: healthy`, recent `last_health_check_at`, `max_concurrent_apps: 1`).
+- **Tower cloud run: STILL FAILS** — 11/11 runs `errored` (`tower apps show` → `exited 0, errored 11`).
   **No successful hosted run exists.**
 
-## Open problem (why the runner didn't help)
-Run #8 was dispatched to runner `019e6540-…` — a DIFFERENT id than the self-hosted runner we just
-registered (`019e7a01-…`). The run is being routed to Tower's managed/cloud runner pool, not our
-new local runner, and it still errors 1–3s after "spinning up pod." So registering a runner was
-necessary progress but did not change run routing on this account.
+## Root cause (now evidence-backed, not a guess)
+Every run is dispatched to a **Tower cloud-pool runner** (id prefix `019e6540-…`) and dies in
+~1 second with **no application output** (the pod never executes `pipeline.py`). Meanwhile our
+**self-hosted runner** (`019e7a01-…` / re-registered `019e7a62-…`) stays `healthy` per the Tower
+API but its `num_runs` never leaves **0** and `active_runs` is always **0** — i.e. Tower never
+routes work to it.
 
-## Likely next checks (need the Tower web console)
-- Confirm in the console whether the self-hosted runner appears and is "online/idle."
-- Check if runs must be explicitly targeted to a self-hosted runner (an environment/runner-pool
-  setting), or whether the account is pinned to a cloud runner pool that has no capacity.
-- Read the per-run system error at the run link (CLI `apps logs` only shows the dispatch line).
+Proven by:
+- A zero-dependency `print("hello")` control app fails identically → not our code/deps/Towerfile.
+- Tried `--environment=default` and `--environment=production` → both error the same way.
+- Restarted / re-pulled the runner; Tower API still shows it healthy with `num_runs: 0`.
+- `tower run` has **no `--runner` flag**, and the web console has **no Runners tab**, so run→runner
+  routing cannot be set from the CLI by us.
+
+Conclusion: the account (`banksi-ai`, personal team) either has **no working cloud compute
+entitlement** and/or **is not configured to route runs to the self-hosted runner**. This is an
+account/platform setting only **Tower** can change — see `TOWER_SUPPORT_EMAIL.md`.
+
+## To get a green run later (any one of these)
+1. Tower enables cloud compute on the account, OR binds the `default`/`production` environment to
+   the self-hosted runner (support request).
+2. If a console control appears (Runners/Compute settings), point the environment at runner
+   `019e7a01-…` and re-run.
+3. Keep the Docker runner Up:
+   `docker run -d --name tower-runner --restart unless-stopped -e TOWER_API_KEY=<key> towerhq/tower-runner:latest`
+   then `tower run` — verify success with `tower apps show lostguide-knockout` reading `exited >= 1`.
 
 ## For the hackathon submission
-Claim the **local verification** only. Do NOT claim a hosted Tower run — `tower apps show
-lostguide-knockout` must read `exited >= 1` before that is true. Current: `exited 0, errored 8`.
+Claim the **local verification** only (real + reproducible). Do NOT claim a hosted Tower run —
+current truth is `exited 0, errored 11`.
 
 ## Security — ACTION NEEDED
 The `TOWER_API_KEY` was shared in a chat session. Rotate it (Tower console → API keys →
 regenerate) and restart the runner container with the new key.
 
 ## Run history (tower apps show, 2026-05-30)
-`run_results: exited 0, errored 8` — runs #1–#8 all errored. Self-hosted runner registered but
-runs not routed to it.
+`run_results: exited 0, errored 11` — runs #1–#11 all errored; self-hosted runner healthy but
+received 0 of them.
