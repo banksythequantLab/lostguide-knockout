@@ -44,6 +44,19 @@ current truth is `exited 0, errored 11`.
 The `TOWER_API_KEY` was shared in a chat session. Rotate it (Tower console → API keys →
 regenerate) and restart the runner container with the new key.
 
+## Additional finding — `tower run --local` also fails (2026-05-30)
+Tower's own skill doc recommends `tower run --local` for development (runs locally WITH Tower
+secret access). Tried it: fails with **`platform error: SpawnFailed — App crashed during local
+execution`** — Tower's local runtime can't spawn on this machine either. So ALL THREE Tower
+execution paths fail (cloud runner, self-hosted runner, local), while plain `python pipeline.py`
+runs perfectly. The blocker is Tower's runtime layer, not our app.
+
+## Tower MCP — checked (28 tools, no runner control)
+`tower mcp-server` exposes 28 tools (apps/deploy/run_local/run_remote/file/secrets/schedules/
+catalogs/teams). There is **no runner tool or runner-target parameter** anywhere — so runner
+routing cannot be set by any client. `tower_catalogs_list` returns empty (no Iceberg catalog on
+the account), which is why the sink falls back to local Parquet.
+
 ## Run history (tower apps show, 2026-05-30)
 `run_results: exited 0, errored 11` — runs #1–#11 all errored; self-hosted runner healthy but
 received 0 of them.
