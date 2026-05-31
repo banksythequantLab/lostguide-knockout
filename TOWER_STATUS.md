@@ -10,11 +10,16 @@
   (`name="twr-test"`, NOT deployed) ran via `tower run --local` from D:\twr_test: venv created,
   printed its line, "Success! Your local run exited cleanly." Earlier `SpawnFailed` was specific to
   the **B:\ UNC drive**; local drives are clean.
-- **Tower `--local`, the FULL deployed pipeline: BLOCKED** — `tower run --local` for
-  `lostguide-knockout` returns `Error: Running apps by name locally is not supported yet` (because
-  it's already a deployed app, Tower treats it as run-by-name, which --local refuses). So the
-  pipeline has NOT been run through Tower's runtime; it runs fine under plain `python pipeline.py`.
-  (See TOWER_LOCAL_RUN_PROOF.txt for exact CLI output of both A and B.)
+- **Tower `--local`, the FULL pipeline: WORKS ✅ GREEN + LIVE (verified 2026-05-31)** — run from a
+  local drive with a Towerfile app name that is NOT a deployed app (e.g. `lostguide-local`), and
+  with `tower` in requirements.txt so the venv has the SDK. Exact log (shell env cleared, so the
+  key came from the Tower secret store): `[pipeline] tower_sdk=True key_source=tower-secret
+  key_present=True` then `stub: false, nimble_calls: 6, n_conflicts: 27-28, HIGH, DO_NOT_PROCEED,
+  Success! Your local run exited cleanly.` Reproduced twice from the canonical repo files.
+  Two gotchas that made earlier attempts fail: (a) a DEPLOYED app name makes `--local` refuse with
+  "Running apps by name locally is not supported yet" — use a non-deployed name; (b) without
+  `tower` in requirements.txt, `tower.secret()` can't run in the venv and it falls back to stub.
+  (See TOWER_LOCAL_RUN_PROOF.txt for the exact stdout.)
 - **Tower MCP `tower_run_local`/`tower_file_*` via stdio:** returned no response in scripted
   probes (likely needs a longer-lived server handshake than a one-shot pipe). The MCP exposes the
   same 28 ops as the CLI; no runner-selection tool exists.
