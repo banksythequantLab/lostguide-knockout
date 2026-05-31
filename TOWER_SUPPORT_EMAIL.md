@@ -33,8 +33,10 @@ run to actually execute.
   spinning up pod`, then it errors (`run_results: exited 0, errored 1`). The code never runs.
   This app is still on my account if you want to inspect it.
 - Same failure on both `--environment=default` and `--environment=production`.
-- `requirements.txt` and `Towerfile` are minimal and valid; local `tower run --local` / direct
-  `python` execution works fine and produces correct output.
+- `requirements.txt` and `Towerfile` are minimal and valid; **`tower run --local` runs the full
+  pipeline LIVE through Tower's runtime** — venv provisioned, deps installed, `NIMBLE_API_KEY`
+  pulled from my Tower secret store, real work done, "exited cleanly." So the app, deps, secret,
+  and Towerfile are all good; only the **cloud** run fails.
 
 **Self-hosted runner (registered, healthy, but never used)**
 - I attached a self-hosted runner via Docker: `towerhq/tower-runner:latest` (v0.11.4), key via
