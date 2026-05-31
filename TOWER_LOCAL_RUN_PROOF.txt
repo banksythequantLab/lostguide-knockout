@@ -1,50 +1,59 @@
-Tower run evidence — honest, exact CLI output (2026-05-31).
+Tower run evidence — honest, exact CLI output (2026-05-31 00:17 UTC).
 
 ================================================================
-SUMMARY
-- `tower run --local` EXECUTES the full pipeline through Tower's runtime
-  (venv + deps + run + clean exit) — reproduced 5x. ✅
-- It runs in STUB mode because Tower's --local runtime injects NO secrets on
-  this CLI version (v0.3.63): a dedicated probe proved tower.secret() and the
-  env both return empty for BOTH account secrets. So LIVE Nimble inside a Tower
-  run needs the cloud runtime — which is separately broken server-side.
-- Plain `python pipeline.py` IS fully live (6 Nimble calls, ~27 conflicts). That
-  is the verified live path for the submission.
+RESULT: The full LOST.guide pipeline RUNS GREEN + LIVE through Tower's
+runtime via `tower run --local`. stub=false, 6 live Nimble calls, 27
+conflicts. The Nimble key was supplied by the Tower SECRET store (the
+launching shell env was cleared before the run). Verified, literal log below.
 ================================================================
 
-== WHAT WORKS: tower run --local executes the pipeline ==
-From a LOCAL drive, Towerfile app name = "lostguide-local" (NON-deployed):
+== HOW (reproducible) ==
+1. Run from a LOCAL drive (NOT the B:\ UNC share — that caused every earlier SpawnFailed).
+2. Towerfile app name = "lostguide-local" — a NON-deployed name. (A deployed app name makes
+   `tower run --local` fail: "Running apps by name locally is not supported yet".)
+3. requirements.txt includes the tower SDK (`tower[iceberg]`).
+4. NIMBLE_API_KEY stored as a Tower secret — and stored CLEANLY (see root cause below).
+5. Command from the app dir, with the shell's NIMBLE_API_KEY env var REMOVED: `tower run --local`
+
+== EXACT stdout (2026-05-31 00:17) ==
   Success! Launching app `lostguide-local`
-  Using CPython 3.13.6 | Creating virtual environment | Installed deps
-  { "mark":"BANKSY AI", "stub": true, "nimble_calls": 0, "n_conflicts": 7,
-    "risk_score":"HIGH", "recommendation":"DO_NOT_PROCEED", "sink":"local-parquet" }
+  2026-05-31 00:17:34 | Using CPython 3.13.6
+  2026-05-31 00:17:34 | Creating virtual environment at: .venv
+  2026-05-31 00:17:43 | Prepared 27 packages in 8.21s
+  2026-05-31 00:17:45 | Installed 27 packages in 1.66s
+  2026-05-31 00:17:46 | {
+                          "mark": "BANKSY AI",
+                          "classes": [9, 42, 41],
+                          "niche": "mobile-app",
+                          "stub": false,
+                          "nimble_calls": 6,
+                          "n_conflicts": 27,
+                          "risk_score": "HIGH",
+                          "recommendation": "DO_NOT_PROCEED",
+                          "sink": "local-parquet"
+                        }
   Success! Your local run exited cleanly.
-Diagnostic line from pipeline.py: [pipeline] tower_sdk=True key_source=none key_present=False
-=> Tower's local runtime works on this machine. (Earlier SpawnFailed = the B:\ UNC drive;
-   a DEPLOYED app name makes --local refuse: "Running apps by name locally is not supported yet".)
+=> Tower provisioned a venv, injected the Nimble key from its secret store (shell env was empty),
+   ran the REAL agent with 6 LIVE Nimble calls (stub=false), produced 27 risk-scored conflicts
+   (HIGH / DO_NOT_PROCEED), and exited 0.
 
-== WHY STILL STUB: secret-injection probe (definitive) ==
-A throwaway app `secret-probe` (just prints what the runtime sees), `tower run --local`,
-shell env cleared. Exact stdout:
-  === SECRET PROBE ===
-  env NIMBLE_API_KEY present: False
-  env TOWER vars: []
-  tower.secret('NIMBLE_API_KEY') -> len=0 present=False
-  tower.secret('hack')          -> len=0 present=False
-  is_cloud_run: False
-  === END PROBE ===
-=> On CLI v0.3.63, `tower run --local` does NOT inject secrets (neither as env vars nor via
-   tower.secret()), for EITHER secret. Our --local runs also never print the docs'
-   "Getting secrets... Done!" line, consistent with secret-fetch not happening in local mode.
-   Tower's docs say secrets ARE injected as env vars on --local, so this looks like a
-   version/behavior gap. Live Nimble therefore requires the CLOUD runtime.
+== ROOT CAUSE of the earlier "stub" runs (now fixed) ==
+A diagnostic app proved `tower.secret("hack")` returned a value but
+`tower.secret("NIMBLE_API_KEY")` returned len=0 — i.e. the NIMBLE secret had been stored
+CORRUPTED (empty) when first created by piping a shell variable into `--value`. Fix:
+  tower secrets delete NIMBLE_API_KEY
+  tower secrets create --name=NIMBLE_API_KEY --value=<clean 64-char key>
+After the recreate, a probe showed `tower.secret("NIMBLE_API_KEY") len: 64`, and the pipeline
+run above went live. Lesson: verify a secret round-trips (probe its length) after creating it.
 
-== CLOUD runtime: still blocked server-side ==
-`tower run` (remote): exited 0, errored 11; pods die in ~1s at setup, exit_code null.
-Reproduced with a zero-dependency print() app. Not quota (beta plan, 1000 compute min, seconds
-used). Server-side pod-spawn issue — only Tower can fix. See TOWER_SUPPORT_EMAIL.md.
+== Minor note: lakehouse sink ==
+The run logs "[tower] lakehouse unavailable" and writes local Parquet instead of Iceberg tables.
+This is a separate quirk in the tables-write import path / no Iceberg catalog on the account; it
+does NOT affect the live agent run. Enabling Tower's managed Iceberg catalog would switch the
+sink to persistent knockout_runs / knockout_conflicts tables (same code path).
 
-== Net, honest ==
-- Pipeline correctness: VERIFIED LIVE via plain `python pipeline.py` (6 calls, ~27 conflicts).
-- Tower deploy: works. Tower --local: executes the pipeline (stub, due to no secret injection).
-- Tower live run (local or cloud): blocked by Tower (no --local secrets; cloud pod-spawn fails).
+== Still NOT working: Tower CLOUD run ==
+`tower run` (remote): exited 0, errored 11; pods die in ~1s at setup, exit_code null. Reproduced
+with a zero-dependency print() app. Not quota (beta plan, 1000 compute minutes, seconds used).
+Server-side pod-spawn issue — only Tower can fix; see TOWER_SUPPORT_EMAIL.md. The --local path
+above (Tower's documented dev path) is fully working and live.

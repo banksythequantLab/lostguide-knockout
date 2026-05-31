@@ -10,19 +10,19 @@
   (`name="twr-test"`, NOT deployed) ran via `tower run --local` from D:\twr_test: venv created,
   printed its line, "Success! Your local run exited cleanly." Earlier `SpawnFailed` was specific to
   the **B:\ UNC drive**; local drives are clean.
-- **Tower `--local`, the FULL pipeline: EXECUTES, but runs in STUB (not yet live) (2026-05-31)** —
-  run from a local drive with a non-deployed Towerfile app name (e.g. `lostguide-local`). Tower
-  provisions a venv, installs deps, runs pipeline.py, writes parquet, "exited cleanly" — reproduced
-  4x. BUT the diagnostic line reads `[pipeline] tower_sdk=True key_source=none key_present=False`
-  and the result is `stub: true, nimble_calls: 0, n_conflicts: 7`. So `tower.secret("NIMBLE_API_KEY")`
-  returned nothing inside the --local venv (the secret exists in `default` per `tower secrets list`,
-  and the tower SDK imported fine) — and Tower's --local uv venv does NOT inherit the launching
-  shell env either. NET: Tower-orchestrated EXECUTION works; LIVE Nimble inside it does NOT yet.
-  Open issue. (Plain `python pipeline.py` is fully live: 6 calls, ~27 conflicts.)
-  Two confirmed gotchas: (a) a DEPLOYED app name makes `--local` refuse ("Running apps by name
-  locally is not supported yet") — use a non-deployed name; (b) adding bare `tower` to
-  requirements broke pyarrow's iceberg extras (missing pyiceberg/polars) — use `tower[iceberg]` if
-  the lakehouse write is wanted. (See TOWER_LOCAL_RUN_PROOF.txt for exact stdout.)
+- **Tower `--local`, the FULL pipeline: WORKS ✅ GREEN + LIVE (verified 2026-05-31)** — run from a
+  local drive, non-deployed Towerfile app name (`lostguide-local`), `tower[iceberg]` in
+  requirements, NIMBLE_API_KEY as a Tower secret. With the shell's NIMBLE_API_KEY env var REMOVED,
+  the run logged `stub: false, nimble_calls: 6, n_conflicts: 27, HIGH, DO_NOT_PROCEED,
+  Success! Your local run exited cleanly` — i.e. Tower provisioned the venv, injected the key from
+  its secret store, and ran the real agent with live Nimble calls. (See TOWER_LOCAL_RUN_PROOF.txt.)
+  - **Root cause of the earlier stub runs: the NIMBLE_API_KEY Tower secret was stored CORRUPTED**
+    (a probe showed `tower.secret("NIMBLE_API_KEY") len=0` while `tower.secret("hack")` worked).
+    Fixed by `tower secrets delete` + `tower secrets create` from the clean 64-char value; a probe
+    then showed len=64 and the pipeline went live.
+  - Gotchas confirmed: (a) a DEPLOYED app name makes `--local` refuse ("Running apps by name
+    locally is not supported yet") — use a non-deployed name; (b) the lakehouse write still falls
+    back to parquet (separate import quirk / no Iceberg catalog) — does not affect the live run.
 - **Tower MCP `tower_run_local`/`tower_file_*` via stdio:** returned no response in scripted
   probes (likely needs a longer-lived server handshake than a one-shot pipe). The MCP exposes the
   same 28 ops as the CLI; no runner-selection tool exists.
